@@ -1,0 +1,92 @@
+version: "3.7"
+
+services:
+    kb_frontend:
+      build:
+        context: ./kb_frontend
+        dockerfile: Dockerfile
+      networks:
+        - traefik
+      ports:
+        - 7777:7777
+      labels:
+        - "traefik.frontend.rule=Host: bb.xeon-labs.com"
+        - "traefik.backend=kb_frontend"
+        - "traefik.docker.network = proxy"
+        - "traefik.enable=true"
+        - "traefik.port=6666"
+      depends_on:
+        - kb_api
+      volumes:
+        - ./kb_frontend/app/main/project:/app
+
+    kb_api:
+      build:
+        context: ./kb_api
+        dockerfile: Dockerfile
+      ports:
+        - 5555:5555
+      networks:
+        - traefik
+#        - db_net
+      depends_on:
+        - redis
+        - postgres
+
+      labels:
+        - "traefik.frontend.rule=Host:bb-kb.xeon-labs.com"
+        - "traefik.backend=kb_api"
+        - "traefik.docker.network = proxy"
+        - "traefik.enable=true"
+        - "traefik.port=5555"
+      volumes:
+      - ./kb_api/app/main/project:/app
+
+    kb_celery:
+        build:
+          context: ./kb_celery
+          dockerfile: Dockerfile
+        networks:
+          - traefik
+        volumes:
+        - ./kb_celery/app/main/project:/app
+        depends_on:
+          - redis
+          - postgres
+
+    redis:
+      image: redis:latest
+      networks:
+        - traefik
+
+      labels:
+      - "traefik.enable=false"
+
+
+    postgres:
+      image: postgres:latest
+      secrets:
+        - pg_secrets
+      networks:
+        - traefik
+      ports:
+        - 5432:5432
+      environment:
+      - POSTGRES_USER=halcyon
+      - POSTGRES_PASSWORD=Znypah777
+      - POSTGRES_DB=bb
+      labels:
+      - "traefik.enable=false"
+
+networks:
+  db_net:
+    name: db_net
+  traefik:
+    external: true
+    name: proxy
+
+
+secrets:
+  pg_secrets:
+    file: ./postgres/secrets/pg_secrets.txt
+
